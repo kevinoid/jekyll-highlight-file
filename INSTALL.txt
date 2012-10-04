@@ -1,0 +1,13 @@
+Installation Instructions
+=========================
+
+To install this plugin, simply place `highlight_file.rb` inside the `_plugins`
+directory of the site for which the plugin will be used.
+
+Configuration Instructions
+==========================
+
+The default values of the options to the highlight_file Liquid tag are
+hard-coded at the top of `highlight_file.rb`.  It is possible to change these
+defaults by editing this file.  If there is demand/interest, a future version
+may load defaults from the site configuration (`config.yml`).
