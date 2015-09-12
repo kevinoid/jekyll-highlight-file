@@ -152,10 +152,11 @@ BODY
         opt[1] ? opt.join('=') : opt[0]
       }.join ' '
 
-      highlight_block = Jekyll::HighlightBlock.new(
+      highlight_block = Jekyll::Tags::HighlightBlock.parse(
         'highlight',
         @language + (options_str.empty? ? '' : ' ' + options_str),
-        [ content, "{% endhighlight %}" ]
+        [ content, "{% endhighlight %}" ],
+        {}
       )
 
       highlight_block.render context
