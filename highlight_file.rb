@@ -5,6 +5,8 @@
 #
 # Copyright 2012 Kevin Locke <kevin@kevinlocke.name>
 
+require 'i18n'
+
 module Jekyll
   class HighlightFileBlock < Liquid::Tag
 
@@ -37,8 +39,9 @@ module Jekyll
       ((?:\s+[^="\s]+(?:=(?:[^"\s]+|"(?:[^\\"]*|\\.)*"))?)*)  # Options
       \s*\z/x
 
-    # highlight_gist argument syntax "<lang> <gist> <file> [opt[=val]]*"
+    # highlight_gist argument syntax "<lang> <gist user> <gist id> <file> [opt[=val]]*"
     GIST_SYNTAX = /\A\s*([^"\s]+|"(?:[^\\"]*|\\.)*")          # Language
+      \s+([^"\s]+|"(?:[^\\"]*|\\.)*")                         # Gist User
       \s+([^"\s]+|"(?:[^\\"]*|\\.)*")                         # Gist ID
       \s+([^"\s]+|"(?:[^\\"]*|\\.)*")                         # File
       ((?:\s+[^="\s]+(?:=(?:[^"\s]+|"(?:[^\\"]*|\\.)*"))?)*)  # Options
@@ -53,8 +56,8 @@ module Jekyll
       when 'highlight_file'
         if parts = text.match(FILE_SYNTAX)
           @language     = unquote parts[1]
-          @file         = unquote parts[2]
-          options_str  = parts[3]
+          @filename     = unquote parts[2]
+          options_str   = parts[3]
 
           @options      = parse_options options_str
         else
@@ -65,8 +68,8 @@ module Jekyll
         if parts = text.match(GIT_SYNTAX)
           @language     = unquote parts[1]
           @repo_url     = unquote parts[2]
-          @file         = unquote parts[3]
-          options_str  = parts[4]
+          @filename     = unquote parts[3]
+          options_str   = parts[4]
 
           @options      = parse_options options_str
           @local_dir    = local_dir_for_repo @repo_url
@@ -77,10 +80,11 @@ module Jekyll
       when 'highlight_gist'
         if parts = text.match(GIST_SYNTAX)
           @language     = unquote parts[1]
-          @gist_id      = unquote parts[2]
+          @gist_user    = unquote parts[2]
+          @gist_id      = unquote parts[3]
           @repo_url     = git_url_for_gist @gist_id
-          @file         = unquote parts[3]
-          options_str  = parts[4]
+          @filename     = unquote parts[4]
+          options_str   = parts[5]
 
           @options      = parse_options options_str
           @local_dir    = local_dir_for_repo @repo_url
@@ -116,7 +120,7 @@ module Jekyll
       footer      = make_footer
 
       if @options[:gist_script] =~ OPTION_TRUE and @gist_id
-        script_url = script_url_for_gist @gist_id, @file
+        script_url = script_url_for_gist @gist_user, @gist_id, @filename
         # Note:  Space in <script> and \n after </script> needed for Maruku
         body = <<-BODY
 <script type="text/javascript" src="#{script_url}"> </script>
@@ -139,9 +143,9 @@ BODY
       end
 
       if @local_dir
-        file_path = File.join @local_dir, *@file.split('/')
+        file_path = File.join @local_dir, *@filename.split('/')
       else
-        file_path = File.join *@file.split('/')
+        file_path = File.join *@filename.split('/')
       end
 
       File.read file_path
@@ -162,11 +166,9 @@ BODY
     end
 
     def make_footer
-      if @options[:git_host_footer]
-        host_info = host_info_for_repo @repo_url, @file
-      end
+      return if not @options[:git_host_footer]
 
-      if host_info
+      if host_info = get_host_info
 <<-FOOTER
 <div class="highlight-git-host-footer">
   <span class="highlight-git-repo-host">
@@ -174,7 +176,7 @@ BODY
     <a href="#{host_info.site_url}">#{host_info.site_name}</a>.
   </span>
   <span class="highlight-git-file-raw">
-    <span>View #{@file}:</span>
+    <span>View #{@filename}:</span>
     <a href="#{host_info.file_url}">Pretty</a>
     <a href="#{host_info.file_raw_url}">Raw</a>
   </span>
@@ -189,21 +191,20 @@ FOOTER
       "git://gist.github.com/#{gist_id}.git"
     end
 
-    def host_info_for_repo(repo_url, filename)
-      case repo_url
-      when %r{^(?:git://|git@)gist\.github\.com/(\w+)\.git$}
+    def get_host_info
+      if @gist_id
         HostInfo.new(
-          "https://gist.github.com/#{$1}",
-          "https://gist.github.com/#{$1}#file_#{camel_to_snake_case filename}",
-          "https://raw.github.com/gist/#{$1}/#{filename}",
+          "https://gist.github.com/#{@gist_user}/#{@gist_id}",
+          "https://gist.github.com/#{@gist_user}/#{@gist_id}##{filename_to_gist_id @filename}",
+          "https://gist.github.com/#{@gist_user}/#{@gist_id}/raw/#{@filename}",
           'GitHub',
           'https://github.com'
         )
-      when %r{^(?:(?:git|https)://|git@)github\.com/(.*)\.git$}
+      elsif %r{^(?:(?:git|https)://|git@)github\.com/(.*)\.git$} =~ @repo_url
         HostInfo.new(
           "https://github.com/#{$1}",
-          "https://github.com/#{$1}/blob/master/#{filename}",
-          "https://github.com/#{$1}/raw/master/#{filename}",
+          "https://github.com/#{$1}/blob/master/#{@filename}",
+          "https://github.com/#{$1}/raw/master/#{@filename}",
           'GitHub',
           'https://github.com'
         )
@@ -221,8 +222,8 @@ FOOTER
       end
     end
 
-    def script_url_for_gist(gist_id, filename)
-      script_url = "https://gist.github.com/#{gist_id}.js"
+    def script_url_for_gist(gist_user, gist_id, filename)
+      script_url = "https://gist.github.com/#{gist_user}/#{gist_id}.js"
       script_url += "?file=#{filename}" if filename
     end
 
@@ -238,14 +239,15 @@ FOOTER
       }
     end
 
-    # From http://stackoverflow.com/a/1509939 confirmed against Gist behavior
-    def camel_to_snake_case(text)
-      text
-        .gsub(/::/, '/')
-        .gsub(/(\p{Upper}+)(\p{Upper}\p{Lower})/, '\1_\2')
-        .gsub(/([\p{Lower}\p{Digit}])(\p{Upper})/, '\1_\2')
-        .tr('-', '_')
-        .downcase
+    # Convert a filename to the fragment id used for the file on a GitHub
+    # gist page.
+    def filename_to_gist_id(filename)
+      # Use old default to avoid warning if not configured
+      I18n.enforce_available_locales = false if I18n.enforce_available_locales.nil?
+      'file-' +
+        I18n.transliterate(filename)
+          .gsub(/[^A-Za-z0-9_]+/, '-')
+          .downcase
     end
 
     # If the argument string is a quoted string, remove quotes and unescape
