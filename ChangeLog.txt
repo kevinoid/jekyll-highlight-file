@@ -1,3 +1,11 @@
+2016-01-17  Kevin Locke <kevin@kevinlocke.name>
+
+    * highlight_file.rb: Call Jekyll::Tags::HighlightBlock.parse or
+    Jekyll::Tags::HighlightBlock.new as appropriate.
+    * highlight_file.rb: Suppress I18n.enforce_available_locales when calling
+    I18n.transliterate, since an available locale is not required here.
+    * *.*: Release (1.0.4)
+
 2015-09-18  Kevin Locke <kevin@kevinlocke.name>
 
     * highlight_file.rb: Update GitHub Gist URLs to new format.
