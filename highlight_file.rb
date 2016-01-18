@@ -156,11 +156,19 @@ BODY
         opt[1] ? opt.join('=') : opt[0]
       }.join ' '
 
-      highlight_block = Jekyll::Tags::HighlightBlock.new(
+      args = [
         'highlight',
         @language + (options_str.empty? ? '' : ' ' + options_str),
         [ content, "{% endhighlight %}" ]
-      )
+      ]
+      # Liquid 3 and later require calling .parse with options instead of .new
+      # See https://github.com/Shopify/liquid/commit/d4ecaf
+      if Jekyll::Tags::HighlightBlock.respond_to?(:parse)
+        args.push({})
+        highlight_block = Jekyll::Tags::HighlightBlock.parse(*args)
+      else
+        highlight_block = Jekyll::Tags::HighlightBlock.new(*args)
+      end
 
       highlight_block.render context
     end
