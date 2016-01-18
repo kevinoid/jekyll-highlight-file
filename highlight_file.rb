@@ -250,12 +250,19 @@ FOOTER
     # Convert a filename to the fragment id used for the file on a GitHub
     # gist page.
     def filename_to_gist_id(filename)
-      # Use old default to avoid warning if not configured
-      I18n.enforce_available_locales = false if I18n.enforce_available_locales.nil?
-      'file-' +
-        I18n.transliterate(filename)
-          .gsub(/[^A-Za-z0-9_]+/, '-')
-          .downcase
+      # I18n now defaults enforce_available_locales to true.
+      # Since we don't need a valid locale to transliterate, suppress it.
+      # https://github.com/svenfuchs/i18n/commit/b5703d
+      old_eal = I18n.enforce_available_locales
+      I18n.enforce_available_locales = false
+      begin
+        'file-' +
+          I18n.transliterate(filename)
+            .gsub(/[^A-Za-z0-9_]+/, '-')
+            .downcase
+      ensure
+        I18n.enforce_available_locales = old_eal
+      end
     end
 
     # If the argument string is a quoted string, remove quotes and unescape
